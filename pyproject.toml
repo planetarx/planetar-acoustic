@@ -1,0 +1,51 @@
+[project]
+name = "planetar-acoustic"
+version = "0.1.0"
+description = "Underwater-acoustic vessel ID microservice for planetar / zdefence (Lyons SAI + CV classifier on a zmesg bus)"
+authors = [{ name = "Steven Ness", email = "sness@sness.net" }]
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "soundfile>=0.12",
+    "click>=8.1",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+ml = [
+    "torch>=2.2",
+    "torchvision>=0.17",
+    "onnxruntime>=1.17",
+    "pillow>=10.0",
+]
+stream = [
+    "websockets>=12.0",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+
+[project.scripts]
+planetar-acoustic = "planetar_acoustic.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q"
