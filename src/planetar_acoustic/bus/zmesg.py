@@ -54,6 +54,16 @@ def uuid7() -> bytes:
     return bytes(rand)
 
 
+def uuid_str(id_: bytes) -> str:
+    """Canonical dashed-hex string form of a 16-byte envelope id.
+
+    Matches the bridge's bytesToUuid and the ontology's uuidToString, so
+    correlation/causation ids compare equal across the whole stack.
+    """
+    h = id_.hex()
+    return f"{h[0:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}"
+
+
 @dataclass
 class Envelope:
     topic: str

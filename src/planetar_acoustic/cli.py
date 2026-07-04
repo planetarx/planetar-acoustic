@@ -36,7 +36,7 @@ from planetar_acoustic.bus.topics import (
     site_envelope,
     summarise_detection,
 )
-from planetar_acoustic.bus.zmesg import Envelope
+from planetar_acoustic.bus.zmesg import Envelope, uuid_str
 from planetar_acoustic.classify.sai_cnn import DEFAULT_CLASSES, SAIClassifier
 from planetar_acoustic.config import (
     DEFAULT_BROKER,
@@ -233,13 +233,17 @@ def run(
                         "band_hz": [p.band_lo_hz, p.band_hi_hz],
                         "peak_freq_hz": p.peak_freq_hz,
                     }
-                    pub.publish(Envelope(
+                    det_env = Envelope(
                         topic="acoustic.detect",
                         schema_name="planetar.acoustic.detect",
                         schema_version=1,
                         correlation_id=clip.clip_id,
                         payload=json.dumps(det_payload).encode("utf-8"),
-                    ))
+                    )
+                    pub.publish(det_env)
+                    # Everything derived from this clip cites the detect
+                    # envelope as its cause (correlation stays clip_id).
+                    det_id = uuid_str(det_env.id)
 
                     s = compute_sai(clip.samples, sample_rate=clip.sample_rate)
                     if emit_sai:
@@ -257,6 +261,7 @@ def run(
                             schema_name="planetar.acoustic.sai",
                             schema_version=1,
                             correlation_id=clip.clip_id,
+                            causation_id=det_id,
                             payload=json.dumps(sai_payload).encode("utf-8"),
                         ))
 
@@ -277,6 +282,7 @@ def run(
                         schema_name="planetar.acoustic.classify",
                         schema_version=1,
                         correlation_id=clip.clip_id,
+                        causation_id=det_id,
                         payload=json.dumps(cls_payload).encode("utf-8"),
                     ))
                     n_class += 1
@@ -416,7 +422,7 @@ def stream(
             n_clips += 1
             clip, site = sclip.clip, sclip.site
             p = detect_presence(clip.samples, clip.sample_rate, presence_params)
-            pub.publish(detect_envelope(
+            det_env = detect_envelope(
                 clip_id=clip.clip_id,
                 site=site,
                 source_uri=clip.source_path,
@@ -426,7 +432,11 @@ def stream(
                 band_hz=(p.band_lo_hz, p.band_hi_hz),
                 peak_freq_hz=p.peak_freq_hz,
                 detected=p.detected,
-            ))
+            )
+            pub.publish(det_env)
+            # Everything derived from this clip cites the detect envelope as
+            # its cause (correlation stays clip_id).
+            det_id = uuid_str(det_env.id)
             if p.detected:
                 n_det += 1
 
@@ -442,18 +452,13 @@ def stream(
                         start_ns=clip.start_ns,
                         freqs_hz=f.astype(np.float32),
                         psd_db=psd_db.astype(np.float32),
+                        causation_id=det_id,
                     ))
 
-            if p.detected and p.snr_db >= chat_snr_db_min:
-                text = summarise_detection(
-                    site=site,
-                    snr_db=p.snr_db,
-                    peak_freq_hz=p.peak_freq_hz,
-                    duration_s=clip.duration_s,
-                )
-                pub.publish(hydrophone_chat_envelope(site=site, text=text))
-                n_chat += 1
-
+            # Classify before the chat alert so the alert can cite the
+            # classification it announces; without --classify it cites the
+            # detect envelope instead.
+            chat_causation = det_id
             if classifier is not None and p.detected:
                 s = compute_sai(clip.samples, sample_rate=clip.sample_rate)
                 h = classifier.predict(s)
@@ -465,14 +470,29 @@ def stream(
                     "top_k": h.top_k,
                     "model_id": h.model_id,
                 }
-                pub.publish(Envelope(
+                cls_env = Envelope(
                     topic="acoustic.classify",
                     schema_name="planetar.acoustic.classify",
                     schema_version=1,
                     correlation_id=clip.clip_id,
+                    causation_id=det_id,
                     payload=json.dumps(cls_payload).encode("utf-8"),
-                ))
+                )
+                pub.publish(cls_env)
                 n_class += 1
+                chat_causation = uuid_str(cls_env.id)
+
+            if p.detected and p.snr_db >= chat_snr_db_min:
+                text = summarise_detection(
+                    site=site,
+                    snr_db=p.snr_db,
+                    peak_freq_hz=p.peak_freq_hz,
+                    duration_s=clip.duration_s,
+                )
+                pub.publish(hydrophone_chat_envelope(
+                    site=site, text=text, causation_id=chat_causation,
+                ))
+                n_chat += 1
 
             if n_clips % 10 == 0:
                 log.info("stream: clips=%d det=%d chat=%d class=%d",

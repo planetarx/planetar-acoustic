@@ -146,9 +146,13 @@ def psd_envelope(
     freqs_hz: np.ndarray,
     psd_db: np.ndarray,
     n_bins: int = 128,
+    causation_id: str = "",
 ) -> Envelope:
     """Compact PSD for UI waterfall. We downsample to ~n_bins log-spaced bins
     so a typical envelope is ~2 KiB.
+
+    `causation_id` is the dashed-UUID envelope id of the clip's acoustic.detect
+    envelope, linking the PSD into the bus-wide distributed trace.
     """
     if freqs_hz.shape != psd_db.shape:
         raise ValueError("freqs_hz and psd_db must match")
@@ -180,6 +184,7 @@ def psd_envelope(
         schema_name="planetar.acoustic.psd",
         schema_version=1,
         correlation_id=clip_id,
+        causation_id=causation_id,
         payload=json.dumps(payload).encode("utf-8"),
     )
 
@@ -191,6 +196,7 @@ def hydrophone_chat_envelope(
     author_id: str = "agent-acoustic",
     author_name: str = "acoustic",
     author_role: str = "agent",
+    causation_id: str = "",
 ) -> Envelope:
     """Emit a chat-channel message the planetar-ui already renders.
 
@@ -198,6 +204,10 @@ def hydrophone_chat_envelope(
     (chat.v1.Message with `text` + `author`) so the UI needs no changes — the
     message appears in the existing `hydrophone-alerts` channel alongside
     synthetic chatter.
+
+    `causation_id` is the dashed-UUID envelope id of the message this alert
+    announces (the clip's acoustic.classify envelope when classification ran,
+    else its acoustic.detect envelope).
     """
     payload = {
         "text": text,
@@ -209,6 +219,7 @@ def hydrophone_chat_envelope(
         schema_name="chat.v1.Message",
         schema_version=1,
         correlation_id=site.site_code,
+        causation_id=causation_id,
         payload=json.dumps(payload).encode("utf-8"),
         source=author_id,
     )
