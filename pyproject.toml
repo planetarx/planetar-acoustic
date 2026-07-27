@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Underwater-acoustic vessel ID microservice for planetar / zdefence (Lyons SAI + CV classifier on a zmesg bus)"
 authors = [{ name = "Steven Ness", email = "sness@sness.net" }]
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = { text = "GPL-3.0-or-later" }
 dependencies = [
     "numpy>=1.26",
     "scipy>=1.11",
