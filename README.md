@@ -162,5 +162,6 @@ No fake numbers. Any benchmark printed by this service is measured.
 
 ## Licensing
 
-Licensed under **AGPL-3.0** (see [`LICENSE`](LICENSE)). **Commercial licenses**
-(for use without AGPL obligations) are available — contact `sness@sness.net`.
+Licensed under **GPL-3.0-or-later** (see [`LICENSE`](LICENSE)) — a single
+licence for everyone, no CLA. Paid add-on services (support, hosting,
+integration, defence contracts) are available — contact `sness@sness.net`.
